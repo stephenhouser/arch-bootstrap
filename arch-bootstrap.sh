@@ -89,7 +89,7 @@ fi
 if [ -z ${rootpass+x} ]; then
 	rootpass=$(whiptail --passwordbox "Enter root password" 10 50 3>&1 1>&2 2>&3) || exit 1
 	: ${rootpass:?"root's password cannot be empty"}
-	rootpass=$(whiptail --passwordbox "Enter root password again" 10 50 3>&1 1>&2 2>&3) || exit 1
+	rootpass2=$(whiptail --passwordbox "Enter root password again" 10 50 3>&1 1>&2 2>&3) || exit 1
 	[[ "$rootpass" == "$rootpass2" ]] || ( echo "Passwords did not match"; exit 1; )
 fi
 
