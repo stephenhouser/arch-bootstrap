@@ -16,11 +16,11 @@ wifi_pass=password
 # This script can be run by executing the following:
 #   curl -sL https://git.io/JLHOp | bash
 
-set -uo pipefail
-trap 's=$?; echo "$0: Error on line "$LINENO": $BASH_COMMAND"; exit $s' ERR
+#set -uo pipefail
+#trap 's=$?; echo "$0: Error on line "$LINENO": $BASH_COMMAND"; exit $s' ERR
 
 ### Get infomation from user ###
-hostname=$(whiptail --inputbox "Enter hostname" 0 0 ${hostname}) || exit 1
+hostname=$(whiptail --inputbox "Enter hostname" 0 0 ${hostname} 2>&1) || exit 1
 clear
 : ${hostname:?"hostname cannot be empty"}
 
