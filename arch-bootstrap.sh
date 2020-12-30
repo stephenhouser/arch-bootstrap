@@ -9,11 +9,13 @@
 # DEFAULT VALUES HERE -- IF SET YOU WILL NOT GET PROPMTED
 hostname=mini-mame
 disk=/dev/sda
-fstype=f2fs
+part_root=/dev/sda3
+part_swap=/dev/sda2
+#fstype=f2fs
 
-wire_net=enp1s0f0
+#wire_net=enp1s0f0
 
-configure_wifi=0
+#configure_wifi=0
 #wifi_net=wlp2s0
 #wifi_ssid=wifi
 #wifi_pass=password
@@ -103,6 +105,32 @@ if [ -z ${password+x} ]; then
 	[[ "$password" == "$password2" ]] || ( echo "Passwords did not match"; exit 1; )
 fi
 
+[ -d /sys/firmware/efi ] && firmware=UEFI || firmware=BIOS
+
+clear
+cat >> /tmp/settings.$$ >> EOF
+hostname=${hostname}
+disk=${disk}
+part_root=${part_root}
+part_swap=${part_swap}
+fstype=${fstype}
+firmware=${firmware}
+wire_net=${wire_net}
+configure_wifi=${configure_wifi}
+wifi_net=${wifi_net}
+wifi_ssid=${wifi_ssid}
+wifi_pass=${wifi_pass}
+wifi_psk=${wifi_psk}
+rootpass=${rootpass}
+user=${user}
+password=${password}
+*** Ready to apply ***
+EOF
+
+whiptail --textbox /tmp/settings.$$ || exit 1
+
+exit 2
+
 ### Set up logging ###
 exec 1> >(tee "stdout.log")
 exec 2> >(tee "stderr.log")
@@ -110,50 +138,89 @@ exec 2> >(tee "stderr.log")
 timedatectl set-ntp true
 
 ### Setup the disk and partitions ###
+# if part_root defined, then use it and don't re-partition
+if [ -z ${part_root+x} ]; then
+	echo ""
+	echo "Partitioning..."
+	swap_size=$(free --mebi | awk '/Mem:/ {print $2}')
+	swap_end=$(( $swap_size + 129 + 1 ))MiB
+
+	[ "${firmware}" == "UEFI" ] && boot_fstype=ESP || boot_fstype=primary
+
+	parted --script "${disk}" -- mklabel gpt \
+		mkpart ${boot_fstype} fat32 1Mib 129MiB \
+		set 1 boot on \
+		mkpart primary linux-swap 129MiB ${swap_end} \
+		mkpart primary ext4 ${swap_end} 100%
+
+	# Simple globbing was not enough as on one disk I needed to match /dev/mmcblk0p1
+	# but not /dev/mmcblk0boot1 while being able to match /dev/sda1 on other disks.
+	part_boot="$(ls ${disk}* | grep -E "^${disk}p?1$")"
+	part_swap="$(ls ${disk}* | grep -E "^${disk}p?2$")"
+	part_root="$(ls ${disk}* | grep -E "^${disk}p?3$")"
+fi
+
 echo ""
-echo "Partitioning..."
-swap_size=$(free --mebi | awk '/Mem:/ {print $2}')
-swap_end=$(( $swap_size + 129 + 1 ))MiB
+echo "Creating and activating file systems..."
+if [ ! -z ${part_swap+x} ]; then
+	wipefs "${part_swap}"
+	mkswap "${part_swap}"
+	swapon "${part_swap}"
+fi
 
-parted --script "${disk}" -- mklabel gpt \
-  mkpart ESP fat32 1Mib 129MiB \
-  set 1 boot on \
-  mkpart primary linux-swap 129MiB ${swap_end} \
-  mkpart primary ext4 ${swap_end} 100%
-
-# Simple globbing was not enough as on one disk I needed to match /dev/mmcblk0p1
-# but not /dev/mmcblk0boot1 while being able to match /dev/sda1 on other disks.
-part_boot="$(ls ${disk}* | grep -E "^${disk}p?1$")"
-part_swap="$(ls ${disk}* | grep -E "^${disk}p?2$")"
-part_root="$(ls ${disk}* | grep -E "^${disk}p?3$")"
-
-echo ""
-echo "Creating file systems..."
-wipefs "${part_boot}"
-wipefs "${part_swap}"
 wipefs "${part_root}"
-
-mkfs.vfat -F32 "${part_boot}"
-mkswap "${part_swap}"
 mkfs.${fstype} -f "${part_root}"
-
-echo ""
-echo "Mount new filesystems..."
-swapon "${part_swap}"
 mount "${part_root}" /mnt
-mkdir /mnt/boot
-mount "${part_boot}" /mnt/boot
+
+if [ ! -z ${part_boot+x} ]; then
+	wipefs "${part_boot}"
+	mkfs.vfat -F32 "${part_boot}"
+	mkdir /mnt/boot
+	mount "${part_boot}" /mnt/boot
+fi
 
 echo ""
 echo "Botstrapping the root volume..."
+# Check for EFI firmware (vs BIOS)
+if [ "${firmware}" == "UEFI" ]; then
+	# efibootmgr		-- for manipulating UEFI boot order systemd-boot
+	bootloader_packages="efibootmgr"
+else
+	# grub				-- The GRUB bootloader
+	bootloader_packages="grub"
+fi
+
+# linux linux-firmware 	-- the kernel
+# linux-headers 		-- allows building and dynamic build kernel modules
+# intel-ucide 			-- indel microcode updates
+# base base-devel 		-- base GNU/Linux and development tools
+# dhcpcd				-- DHCP Client
+# wpa_supplicant		-- WPA WiFi authentication
+# broadcom-wl-dkms 		-- Mac mini wireless driver
+# e2fsprogs				-- ext based file systems
+# exfatprogs			-- MS-DOS FAT based file systems
+# dosfstools			-- MS-DOS FAT based file systems
+# f2fs-tools			-- F2FS Flash-based file systems
+# ntfs-3g				-- NTFS-based file systems
+# openssh				-- SSH client and server
+# man-db man-pages		-- The manual
+# pkgfile 				-- allows finding which package provides a program
+# zsh grml-zsh-confit	-- zsh and pre-configured zsh scripts
+# sudo					-- sudo command 
+# vim					-- the editor
+# screen				-- terminal multiplexer
+# git					-- source code control
+# libnewt 				-- whiptail for text-mode prompts
+
 pacstrap /mnt \
 	linux linux-firmware linux-headers intel-ucode \
+	${bootloader_packages} \
 	base base-devel \
-	efibootmgr \
-	dhcpcd broadcom-wl-dkms wpa_supplicant \
+	dhcpcd wpa_supplicant broadcom-wl-dkms \
 	e2fsprogs exfatprogs f2fs-tools dosfstools ntfs-3g \
 	openssh \
-	man-db man-pages pkgfile \
+	pkgfile libnewt \
+	man-db man-pages \
 	zsh grml-zsh-config \
 	sudo vim git screen 
 
@@ -200,13 +267,11 @@ DHCP=yes
 RouteMetric=20
 EOF
 
-${}
-
-if [ -z ${wifi_psk+x} ]; then
-	wpa_pass_line="password=\"${wifi_password}\""
-else
-	wpa_pass_line="psk=\"${wifi_psk}\""
-fi
+	if [ -z ${wifi_psk+x} ]; then
+		wpa_pass_line="password=\"${wifi_password}\""
+	else
+		wpa_pass_line="psk=\"${wifi_psk}\""
+	fi
 
 	# wifi working
 	cat >> /mnt/etc/wpa_supplicant/wpa_supplicant.conf << EOF
@@ -223,28 +288,10 @@ EOF
 	arch-chroot /mnt systemctl enable wpa_supplicant.service
 fi
 
+# enable network services...
 arch-chroot /mnt systemctl enable systemd-networkd.service
 arch-chroot /mnt systemctl enable dhcpcd.service
 arch-chroot /mnt systemctl enable sshd.service
-
-# Set up systemd-boot (EFI direct boot)
-echo ""
-echo "Setting up boot manager and initial ramdisk..."
-arch-chroot /mnt mkinitcpio -P
-arch-chroot /mnt bootctl --path=/boot install
-
-cat >> /mnt/boot/loader/entries/arch.conf << EOF
-title   Arch Linux
-linux   /vmlinuz-linux
-initrd  /intel-ucode.img
-initrd  /initramfs-linux.img
-options root=${part_root} rw
-EOF
-
-# start after power loss
-echo ""
-echo "Setting up power on after power loss..."
-setpci -s 0:1f.0 0xa4.b=0
 
 echo ""
 echo "Setting up accounts..."
@@ -258,6 +305,33 @@ echo "root:$rootpass" | chpasswd --root /mnt
 arch-chroot /mnt useradd -mU -s /usr/bin/zsh -G  wheel,uucp,video,audio,storage,games,input ${user}
 arch-chroot /mnt chsh -s /usr/bin/zsh
 echo "${user}:$password" | chpasswd --root /mnt
+
+echo ""
+echo "Setting up packages..."
+arch-chroot /mnt pkgfile -u
+
+# Set up systemd-boot (EFI direct boot)
+echo ""
+echo "Setting up boot manager and initial ramdisk..."
+arch-chroot /mnt mkinitcpio -P
+
+if [ "${firmware}" == "UEFI" ]; then
+	arch-chroot /mnt bootctl --path=/boot install
+	cat >> /mnt/boot/loader/entries/arch.conf << EOF
+title   Arch Linux
+linux   /vmlinuz-linux
+initrd  /intel-ucode.img
+initrd  /initramfs-linux.img
+options root=${part_root} rw
+EOF
+
+	# start after power loss
+	echo ""
+	echo "Setting up power on after power loss..."
+	setpci -s 0:1f.0 0xa4.b=0
+else
+	arch-chroot /mnt grub-install ${disk}
+fi
 
 #echo ""
 #echo "Unmounting..."
