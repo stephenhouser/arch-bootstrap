@@ -116,22 +116,17 @@ rootpass=${rootpass}
 user=${user}
 password=${password}
 disk=${disk}
-part_root=${part_root}
-part_swap=${part_swap}
+part_root=${part_root:-"--unset--"}
+part_swap=${part_swap:-"--unset--"}
 fstype=${fstype}
 firmware=${firmware}
 wire_net=${wire_net}
 configure_wifi=${configure_wifi}
+wifi_net=${wifi_net:-"--unset--"}
+wifi_ssid=${wifi_ssid:-"--unset--"}
+wifi_pass=${wifi_password:-"--unset--"}
+wifi_psk=${wifi_psk:-"--unset--"}
 EOF
-
-if [ "${configure_wifi}" = true ]; then
-	cat >> /tmp/settings.$$ << EOF
-	wifi_net=${wifi_net}
-	wifi_ssid=${wifi_ssid}
-	wifi_pass=${wifi_password}
-	wifi_psk=${wifi_psk:-""}
-EOF
-fi
 
 whiptail --title "Review settings" --scrolltext --textbox /tmp/settings.$$ 20 50 || exit 1
 rm /tmp/settings.$$
