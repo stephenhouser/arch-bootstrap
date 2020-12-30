@@ -1,72 +1,107 @@
 #!/bin/bash
-
 # Mini-MAME Arch Install
-# DEFAULT VALUES HERE
-hostname=mini-mame
-user=mame
-password=mame
-wire_net=enp1s0f0
-
-wifi_net=wlp2s0
-wifi_ssid=wifi
-wifi_pass=password
 
 # WARNING: this script will destroy data on the selected disk.
 # This script can be run by executing the following:
-#   curl -sL https://git.io/JLH3S | bash
+#   curl -sL https://git.io/JLHZM | bash
+# Based heavily on https://disconnected.systems/blog/archlinux-installer/#the-complete-installer-script
+
+# DEFAULT VALUES HERE -- IF SET YOU WILL NOT GET PROPMTED
+hostname=mini-mame
+disk=/dev/sda
+fstype=f2fs
+
+wire_net=enp1s0f0
+
+configure_wifi=0
+#wifi_net=wlp2s0
+#wifi_ssid=wifi
+#wifi_pass=password
+#wifi_psk="psk"
+
+#rootpass=none
+#user=mame
+#password=mame
 
 set -uo pipefail
 trap 's=$?; echo "$0: Error on line "$LINENO": $BASH_COMMAND"; exit $s' ERR
 
 ### Get infomation from user ###
-hostname=$(whiptail --inputbox "Enter hostname" 10 50 ${hostname} 3>&1 1>&2 2>&3) || exit 1
-: ${hostname:?"hostname cannot be empty"}
+if [ -z ${hostname+x} ]; then
+	hostname=$(whiptail --inputbox "Enter hostname" 10 50 3>&1 1>&2 2>&3) || exit 1
+	: ${hostname:?"hostname cannot be empty"}
+fi
 
-SAVE_IFS=${IFS}
-IFS=$'\n'
-blockdevices=()
-for dev in $(lsblk -dplnx size -o name,size | grep -Ev "boot|rpmb|loop" | tac); do
-	dev_name=$(echo $dev | awk -e '{print $1}')
-	dev_size=$(echo $dev | awk -e '{print $2}')
-	blockdevices+=("${dev_name}" "    ${dev_size}")
-done
-IFS=${SAVE_IFS}
-device=$(whiptail --menu "Select installation disk" 10 50 0 "${blockdevices[@]}" 3>&1 1>&2 2>&3) || exit 1
+if [ -z ${disk+x} ]; then
+	SAVE_IFS=${IFS}
+	IFS=$'\n'
+	blockdevices=()
+	for dev in $(lsblk -dplnx size -o name,size | grep -Ev "boot|rpmb|loop" | tac); do
+		dev_name=$(echo $dev | awk -e '{print $1}')
+		dev_size=$(echo $dev | awk -e '{print $2}')
+		blockdevices+=("${dev_name}" "    ${dev_size}")
+	done
+	IFS=${SAVE_IFS}
+	disk=$(whiptail --menu "Select installation disk" 10 50 0 "${blockdevices[@]}" 3>&1 1>&2 2>&3) || exit 1
+fi
 
-fstypes=()
-fstypes+=("f2fs" "    Best for SSDs")
-fstypes+=("ext4" "    Best for HDDs")
-fstype=$(whiptail --menu "Select root file system type" 10 50 0 "${fstypes[@]}" 3>&1 1>&2 2>&3) || exit 1
-: ${fstype:?"fstype cannot be empty"}
+if [ -z ${fstype+x} ]; then
+	fstypes=()
+	fstypes+=("f2fs" "    Best for SSDs")
+	fstypes+=("ext4" "    Best for HDDs")
+	fstype=$(whiptail --menu "Select root file system type" 10 50 0 "${fstypes[@]}" 3>&1 1>&2 2>&3) || exit 1
+	: ${fstype:?"fstype cannot be empty"}
+fi
 
 netdevices=()
 for dev in $(ip link show | tac | egrep "^[0-9]+:" | cut -d: -f2); do
 	netdevices+=("$dev" " ")
 done
 
-wire_net=$(whiptail --menu "Select wired network device" 10 50 0 "${netdevices[@]}" 3>&1 1>&2 2>&3) || exit 1
-: ${wire_net:?"Wired network device cannot be empty"}
+if [ -z ${wire_net+x} ]; then
+	wire_net=$(whiptail --menu "Select wired network device" 10 50 0 "${netdevices[@]}" 3>&1 1>&2 2>&3) || exit 1
+	: ${wire_net:?"Wired network device cannot be empty"}
+if [ -z ${wire_net+x} ]; then
 
-configure_wifi=0
-if whiptail --yesno "Configure WiFi?" 0 0; then
-	configure_wifi=1
-	wifi_net=$(whiptail --menu "Select wireless network device" 10 50 0 "${netdevices[@]}" 3>&1 1>&2 2>&3) || exit 1
-	: ${wifi_net:?"Wireless network device cannot be empty"}
+if [ -z ${configure_wifi+x} ]; then
+	configure_wifi=0
+	if whiptail --yesno "Configure WiFi?" 0 0; then
+		configure_wifi=1
+		if [ -z ${wifi_net+x} ]; then
+			wifi_net=$(whiptail --menu "Select wireless network device" 10 50 0 "${netdevices[@]}" 3>&1 1>&2 2>&3) || exit 1
+			: ${wifi_net:?"Wireless network device cannot be empty"}
+		fi
 
-	wifi_ssid=$(whiptail --inputbox "Enter WiFi ssid" 10 50 ${wifi_ssid} 3>&1 1>&2 2>&3) || exit 1
-	: ${wifi_ssid:?"WiFi ssid cannot be empty"}
+		if [ -z ${wifi_ssid+x} ]; then
+			wifi_ssid=$(whiptail --inputbox "Enter WiFi ssid" 10 50 3>&1 1>&2 2>&3) || exit 1
+			: ${wifi_ssid:?"WiFi ssid cannot be empty"}
+		fi
 
-	wifi_password=$(whiptail --passwordbox "Enter WiFi password" 10 50 ${wifi_password} 3>&1 1>&2 2>&3) || exit 1
-	: ${wifi_password:?"WiFi password cannot be empty"}
+		if [ -z ${wifi_password+x} ]; then
+			wifi_password=$(whiptail --passwordbox "Enter WiFi password" 10 50 3>&1 1>&2 2>&3) || exit 1
+			: ${wifi_password:?"WiFi password cannot be empty"}
+		fi
+	fi
 fi
 
-user=$(whiptail --inputbox "Enter admin username" 10 50 ${user} 3>&1 1>&2 2>&3) || exit 1
-: ${user:?"user cannot be empty"}
+if [ -z ${rootpass+x} ]; then
+	rootpass=$(whiptail --passwordbox "Enter root password" 10 50 3>&1 1>&2 2>&3) || exit 1
+	: ${rootpass:?"root's password cannot be empty"}
+	rootpass=$(whiptail --passwordbox "Enter root password again" 10 50 3>&1 1>&2 2>&3) || exit 1
+	[[ "$rootpass" == "$rootpass2" ]] || ( echo "Passwords did not match"; exit 1; )
+fi
 
-password=$(whiptail --passwordbox "Enter admin password" 10 50 ${password} 3>&1 1>&2 2>&3) || exit 1
-: ${password:?"password cannot be empty"}
-password2=$(whiptail --passwordbox "Enter admin password again" 10 50 ${password} 3>&1 1>&2 2>&3) || exit 1
-[[ "$password" == "$password2" ]] || ( echo "Passwords did not match"; exit 1; )
+if [ -z ${user+x} ]; then
+	user=$(whiptail --inputbox "Enter admin username" 10 50 ${user} 3>&1 1>&2 2>&3) || exit 1
+	: ${user:?"user cannot be empty"}
+fi
+
+if [ -z ${password+x} ]; then
+	password=$(whiptail --passwordbox "Enter admin password" 10 50 ${password} 3>&1 1>&2 2>&3) || exit 1
+	: ${password:?"password cannot be empty"}
+	password2=$(whiptail --passwordbox "Enter admin password again" 10 50 ${password} 3>&1 1>&2 2>&3) || exit 1
+	[[ "$password" == "$password2" ]] || ( echo "Passwords did not match"; exit 1; )
+fi
 
 ### Set up logging ###
 exec 1> >(tee "stdout.log")
@@ -80,17 +115,17 @@ echo "Partitioning..."
 swap_size=$(free --mebi | awk '/Mem:/ {print $2}')
 swap_end=$(( $swap_size + 129 + 1 ))MiB
 
-parted --script "${device}" -- mklabel gpt \
+parted --script "${disk}" -- mklabel gpt \
   mkpart ESP fat32 1Mib 129MiB \
   set 1 boot on \
   mkpart primary linux-swap 129MiB ${swap_end} \
   mkpart primary ext4 ${swap_end} 100%
 
-# Simple globbing was not enough as on one device I needed to match /dev/mmcblk0p1
-# but not /dev/mmcblk0boot1 while being able to match /dev/sda1 on other devices.
-part_boot="$(ls ${device}* | grep -E "^${device}p?1$")"
-part_swap="$(ls ${device}* | grep -E "^${device}p?2$")"
-part_root="$(ls ${device}* | grep -E "^${device}p?3$")"
+# Simple globbing was not enough as on one disk I needed to match /dev/mmcblk0p1
+# but not /dev/mmcblk0boot1 while being able to match /dev/sda1 on other disks.
+part_boot="$(ls ${disk}* | grep -E "^${disk}p?1$")"
+part_swap="$(ls ${disk}* | grep -E "^${disk}p?2$")"
+part_root="$(ls ${disk}* | grep -E "^${disk}p?3$")"
 
 echo ""
 echo "Creating file systems..."
@@ -118,8 +153,9 @@ pacstrap /mnt \
 	dhcpcd broadcom-wl-dkms wpa_supplicant \
 	e2fsprogs exfatprogs f2fs-tools dosfstools ntfs-3g \
 	openssh \
-	man-db man-pages \
-	sudo vim zsh git
+	man-db man-pages pkgfile \
+	zsh grml-zsh-config \
+	sudo vim git screen 
 
 genfstab -t PARTUUID /mnt >> /mnt/etc/fstab
 
@@ -164,6 +200,14 @@ DHCP=yes
 RouteMetric=20
 EOF
 
+${}
+
+if [ -z ${wifi_psk+x} ]; then
+	wpa_pass_line="password=\"${wifi_password}\""
+else
+	wpa_pass_line="psk=\"${wifi_psk}\""
+fi
+
 	# wifi working
 	cat >> /mnt/etc/wpa_supplicant/wpa_supplicant.conf << EOF
 ctrl_interface=/run/wpa_supplicant
@@ -171,7 +215,7 @@ update_config=1
 
 network={
 	ssid="${wifi_ssid}"
-	password="${wifi_password}"
+	${wpa_pass_line}
 }
 EOF
 
@@ -208,12 +252,17 @@ echo "Setting up accounts..."
 echo "%wheel ALL=(ALL) ALL" >> /mnt/etc/sudoers
 
 # Root password
-echo "root:$password" | chpasswd --root /mnt
+echo "root:$rootpass" | chpasswd --root /mnt
 
 # Add user account
 arch-chroot /mnt useradd -mU -s /usr/bin/zsh -G  wheel,uucp,video,audio,storage,games,input ${user}
 arch-chroot /mnt chsh -s /usr/bin/zsh
 echo "${user}:$password" | chpasswd --root /mnt
+
+#echo ""
+#echo "Unmounting..."
+#umount ${part_boot}
+#umount ${part_root}
 
 echo ""
 echo "done!"
