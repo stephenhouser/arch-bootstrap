@@ -16,8 +16,8 @@ wifi_pass=password
 # This script can be run by executing the following:
 #   curl -sL https://git.io/JLH3S | bash
 
-#set -uo pipefail
-#trap 's=$?; echo "$0: Error on line "$LINENO": $BASH_COMMAND"; exit $s' ERR
+set -uo pipefail
+trap 's=$?; echo "$0: Error on line "$LINENO": $BASH_COMMAND"; exit $s' ERR
 
 ### Get infomation from user ###
 hostname=$(whiptail --inputbox "Enter hostname" 10 50 ${hostname} 3>&1 1>&2 2>&3) || exit 1
@@ -99,7 +99,7 @@ mount "${part_boot}" /mnt/boot
 echo ""
 echo "Botstrapping the root volume..."
 pacstrap /mnt \
-	linux linux-firmware linux-headers intel_ucode \
+	linux linux-firmware linux-headers intel-ucode \
 	base base-devel \
 	efibootmgr \
 	dhcpcd broadcom-wl-dkms wpa_supplicant \
