@@ -31,7 +31,7 @@ for dev in $(lsblk -dplnx size -o name,size | grep -Ev "boot|rpmb|loop" | tac); 
 	blockdevices+=("${dev_name}" "    ${dev_size}")
 done
 IFS=${SAVE_IFS}
-device=$(whiptail --menu "Select installation disk" 10 50 0 ${blockdevices} 3>&1 1>&2 2>&3) || exit 1
+device=$(whiptail --menu "Select installation disk" 10 50 0 "${blockdevices[@]}" 3>&1 1>&2 2>&3) || exit 1
 
 fstypes=()
 fstypes+=("f2fs" "    Best for SSDs")
@@ -40,17 +40,17 @@ fstype=$(whiptail --menu "Select root file system type" 10 50 0 "${fstypes[@]}" 
 : ${fstype:?"fstype cannot be empty"}
 
 netdevices=()
-for dev in $(ip link show | egrep "^[0-9]+:" | cut -d: -f2); do
-	netdevices+=("$dev" "")
+for dev in $(ip link show | tac | egrep "^[0-9]+:" | cut -d: -f2); do
+	netdevices+=("$dev" " ")
 done
 
-wire_net=$(whiptail --menu "Select wired network device" 10 50 0 ${netdevices[@]} 3>&1 1>&2 2>&3) || exit 1
+wire_net=$(whiptail --menu "Select wired network device" 10 50 0 "${netdevices[@]}" 3>&1 1>&2 2>&3) || exit 1
 : ${wire_net:?"Wired network device cannot be empty"}
 
 configure_wifi=0
 if whiptail --yesno "Configure WiFi?" 0 0; then
 	configure_wifi=1
-	wifi_net=$(whiptail --menu "Select wireless network device" 10 50 0 ${netdevices} 3>&1 1>&2 2>&3) || exit 1
+	wifi_net=$(whiptail --menu "Select wireless network device" 10 50 0 "${netdevices[@]}" 3>&1 1>&2 2>&3) || exit 1
 	: ${wifi_net:?"Wireless network device cannot be empty"}
 
 	wifi_ssid=$(whiptail --inputbox "Enter WiFi ssid" 10 50 ${wifi_ssid} 3>&1 1>&2 2>&3) || exit 1
