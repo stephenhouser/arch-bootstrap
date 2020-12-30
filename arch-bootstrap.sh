@@ -61,7 +61,7 @@ done
 if [ -z ${wire_net+x} ]; then
 	wire_net=$(whiptail --menu "Select wired network device" 10 50 0 "${netdevices[@]}" 3>&1 1>&2 2>&3) || exit 1
 	: ${wire_net:?"Wired network device cannot be empty"}
-if [ -z ${wire_net+x} ]; then
+fi
 
 if [ -z ${configure_wifi+x} ]; then
 	configure_wifi=0
