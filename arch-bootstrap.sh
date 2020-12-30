@@ -25,41 +25,42 @@ clear
 : ${hostname:?"hostname cannot be empty"}
 
 devicelist=$(lsblk -dplnx size -o name,size | grep -Ev "boot|rpmb|loop" | tac)
-device=$(whiptail --menu "Select installation disk" 0 0 0 ${devicelist}) || exit 1
+device=$(whiptail --menu "Select installation disk" 0 0 0 ${devicelist} 2>&1) || exit 1
 clear
 
-fstype=$(whiptail --menu "Select root file system type" 0 0 0 f2fs "- For SSDs" ext4 "- For HDDs") || exit 1
+fstype=$(whiptail --menu "Select root file system type" 0 0 0 f2fs "- For SSDs" ext4 "- For HDDs" 2>&1) || exit 1
 clear
 : ${fstype:?"fstype cannot be empty"}
 
-wire_net=$(whiptail --inputbox "Enter wired network device" 0 0 ${wire_net}) || exit 1
+wire_net=$(whiptail --inputbox "Enter wired network device" 0 0 ${wire_net} 2>&1) || exit 1
 clear
 : ${wire_net:?"Wired network device cannot be empty"}
 
-configure_wifi=$(whiptail --yesno "Configure WiFi?" 0 0) || exit 1
+whiptail --yesno "Configure WiFi?" 0 0
+configure_wifi=$?
 clear
 if ${configure_wifi}; then
-	wifi_net=$(whiptail --inputbox "Enter wireless network device" 0 0 ${wifi_net}) || exit 1
+	wifi_net=$(whiptail --inputbox "Enter wireless network device" 0 0 ${wifi_net} 2>&1) || exit 1
 	clear
 	: ${wifi_net:?"Wireless network device cannot be empty"}
 
-	wifi_ssid=$(whiptail --inputbox "Enter WiFi ssid" 0 0 ${wifi_ssid}) || exit 1
+	wifi_ssid=$(whiptail --inputbox "Enter WiFi ssid" 0 0 ${wifi_ssid} 2>&1) || exit 1
 	clear
 	: ${wifi_ssid:?"WiFi ssid cannot be empty"}
 
-	wifi_password=$(whiptail --passwordbox "Enter WiFi password" 0 0 ${wifi_password}) || exit 1
+	wifi_password=$(whiptail --passwordbox "Enter WiFi password" 0 0 ${wifi_password} 2>&1) || exit 1
 	clear
 	: ${wifi_password:?"WiFi password cannot be empty"}
 fi
 
-user=$(whiptail --inputbox "Enter admin username" 0 0 ${user}) || exit 1
+user=$(whiptail --inputbox "Enter admin username" 0 0 ${user} 2>&1) || exit 1
 clear
 : ${user:?"user cannot be empty"}
 
-password=$(whiptail --passwordbox "Enter admin password" 0 0 ${password}) || exit 1
+password=$(whiptail --passwordbox "Enter admin password" 0 0 ${password} 2>&1) || exit 1
 clear
 : ${password:?"password cannot be empty"}
-password2=$(whiptail --stdout --passwordbox "Enter admin password again" 0 0 ${password}) || exit 1
+password2=$(whiptail --stdout --passwordbox "Enter admin password again" 0 0 ${password} 2>&1) || exit 1
 clear
 [[ "$password" == "$password2" ]] || ( echo "Passwords did not match"; exit 1; )
 
