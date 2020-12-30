@@ -66,9 +66,9 @@ if [ -z ${wire_net+x} ]; then
 fi
 
 if [ -z ${configure_wifi+x} ]; then
-	configure_wifi=0
+	configure_wifi=false
 	if whiptail --yesno "Configure WiFi?" 0 0; then
-		configure_wifi=1
+		configure_wifi=true
 		if [ -z ${wifi_net+x} ]; then
 			wifi_net=$(whiptail --menu "Select wireless network device" 10 50 0 "${netdevices[@]}" 3>&1 1>&2 2>&3) || exit 1
 			: ${wifi_net:?"Wireless network device cannot be empty"}
@@ -101,15 +101,20 @@ fi
 if [ -z ${password+x} ]; then
 	password=$(whiptail --passwordbox "Enter primary user password" 10 50 3>&1 1>&2 2>&3) || exit 1
 	: ${password:?"password cannot be empty"}
-	password2=$(whiptail --passwordbox "Enter primay user password again" 10 50 ${primary_password} 3>&1 1>&2 2>&3) || exit 1
+	password2=$(whiptail --passwordbox "Enter primay user password again" 10 50 3>&1 1>&2 2>&3) || exit 1
 	[[ "$password" == "$password2" ]] || ( echo "Passwords did not match"; exit 1; )
 fi
 
 [ -d /sys/firmware/efi ] && firmware=UEFI || firmware=BIOS
 
 clear
-cat >> /tmp/settings.$$ >> EOF
+cat >> /tmp/settings.$$ << EOF
+Build system with the following settings...
+
 hostname=${hostname}
+rootpass=${rootpass}
+user=${user}
+password=${password}
 disk=${disk}
 part_root=${part_root}
 part_swap=${part_swap}
@@ -117,14 +122,14 @@ fstype=${fstype}
 firmware=${firmware}
 wire_net=${wire_net}
 configure_wifi=${configure_wifi}
-wifi_net=${wifi_net}
-wifi_ssid=${wifi_ssid}
-wifi_pass=${wifi_pass}
-wifi_psk=${wifi_psk}
-rootpass=${rootpass}
-user=${user}
-password=${password}
-*** Ready to apply ***
+EOF
+
+if [ "${configure_wifi}" = true ]; then
+	cat >> /tmp/settings.$$ << EOF
+	wifi_net=${wifi_net}
+	wifi_ssid=${wifi_ssid}
+	wifi_pass=${wifi_pass}
+	wifi_psk=${wifi_psk}
 EOF
 
 whiptail --textbox /tmp/settings.$$ || exit 1
@@ -181,7 +186,8 @@ fi
 
 echo ""
 echo "Botstrapping the root volume..."
-# Check for EFI firmware (vs BIOS)
+
+# Firmware packages
 if [ "${firmware}" == "UEFI" ]; then
 	# efibootmgr		-- for manipulating UEFI boot order systemd-boot
 	bootloader_packages="efibootmgr"
@@ -190,13 +196,20 @@ else
 	bootloader_packages="grub"
 fi
 
+# WiFi Packages (if enabled)
+if [ "${configure_wifi}" = true ]; then
+	# wpa_supplicant	-- WPA WiFi authentication
+	# broadcom-wl-dkms 	-- Mac mini wireless driver
+	wifi_packages="wpa_supplicant broadcom-wl-dkms"
+else
+	wifi_packages=""
+fi
+
 # linux linux-firmware 	-- the kernel
 # linux-headers 		-- allows building and dynamic build kernel modules
 # intel-ucide 			-- indel microcode updates
 # base base-devel 		-- base GNU/Linux and development tools
 # dhcpcd				-- DHCP Client
-# wpa_supplicant		-- WPA WiFi authentication
-# broadcom-wl-dkms 		-- Mac mini wireless driver
 # e2fsprogs				-- ext based file systems
 # exfatprogs			-- MS-DOS FAT based file systems
 # dosfstools			-- MS-DOS FAT based file systems
@@ -216,9 +229,9 @@ pacstrap /mnt \
 	linux linux-firmware linux-headers intel-ucode \
 	${bootloader_packages} \
 	base base-devel \
-	dhcpcd wpa_supplicant broadcom-wl-dkms \
+	${wifi_packages} \
+	dhcpcd openssh \
 	e2fsprogs exfatprogs f2fs-tools dosfstools ntfs-3g \
-	openssh \
 	pkgfile libnewt \
 	man-db man-pages \
 	zsh grml-zsh-config \
@@ -255,7 +268,7 @@ ${wire_net}
 DHCP=yes
 EOF
 
-if ${configure_wifi}; then
+if [ "${configure_wifi}" = true ]; then
 	cat >> /mnt/etc/systemd/network/20-${wifi_net}.network << EOF
 [Match]
 ${wifi_net}
