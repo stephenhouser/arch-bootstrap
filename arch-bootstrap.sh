@@ -22,13 +22,15 @@ trap 's=$?; echo "$0: Error on line "$LINENO": $BASH_COMMAND"; exit $s' ERR
 hostname=$(whiptail --inputbox "Enter hostname" 10 50 ${hostname} 3>&1 1>&2 2>&3) || exit 1
 : ${hostname:?"hostname cannot be empty"}
 
-blockdevicelist=$(lsblk -dplnx size -o name,size | grep -Ev "boot|rpmb|loop" | tac)
+SAVE_IFS=${IFS}
+IFS=$'\n'
 blockdevices=()
 for dev in $(lsblk -dplnx size -o name,size | grep -Ev "boot|rpmb|loop" | tac); do
 	dev_name=$(echo $dev | awk -e '{print $1}')
 	dev_size=$(echo $dev | awk -e '{print $2}')
 	blockdevices+=("${dev_name}" "    ${dev_size}")
 done
+IFS=${SAVE_IFS}
 device=$(whiptail --menu "Select installation disk" 10 50 0 ${blockdevices} 3>&1 1>&2 2>&3) || exit 1
 
 fstypes=()
