@@ -26,7 +26,7 @@ hostname=$(whiptail --inputbox "Enter hostname" 10 50 ${hostname} 3>&1 1>&2 2>&3
 devicelist=$(lsblk -dplnx size -o name,size | grep -Ev "boot|rpmb|loop" | tac)
 device=$(whiptail --menu "Select installation disk" 10 50 0 ${devicelist} 3>&1 1>&2 2>&3) || exit 1
 
-fstype=$(whiptail --menu "Select root file system type" 10 50 0 f2fs "- For SSDs" ext4 "- For HDDs" 3>&1 1>&2 2>&3) || exit 1
+fstype=$(whiptail --menu "Select root file system type" 10 50 0 f2fs SSD ext4 HDD 3>&1 1>&2 2>&3) || exit 1
 : ${fstype:?"fstype cannot be empty"}
 
 wire_net=$(whiptail --inputbox "Enter wired network device" 10 50 ${wire_net} 3>&1 1>&2 2>&3) || exit 1
