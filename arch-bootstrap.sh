@@ -107,7 +107,7 @@ fi
 
 [ -d /sys/firmware/efi ] && firmware=UEFI || firmware=BIOS
 
-clear
+# Review
 cat >> /tmp/settings.$$ << EOF
 Build system with the following settings...
 
@@ -128,13 +128,15 @@ if [ "${configure_wifi}" = true ]; then
 	cat >> /tmp/settings.$$ << EOF
 	wifi_net=${wifi_net}
 	wifi_ssid=${wifi_ssid}
-	wifi_pass=${wifi_pass}
-	wifi_psk=${wifi_psk}
+	wifi_pass=${wifi_password}
+	wifi_psk=${wifi_psk:-""}
 EOF
+fi
 
-whiptail --textbox /tmp/settings.$$ || exit 1
+whiptail --title "Review settings" --scrolltext --textbox /tmp/settings.$$ 20 50 || exit 1
+rm /tmp/settings.$$
 
-exit 2
+whiptail --yesno "Install system?" 0 0 || exit 1
 
 ### Set up logging ###
 exec 1> >(tee "stdout.log")
