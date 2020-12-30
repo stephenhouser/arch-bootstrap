@@ -22,28 +22,39 @@ trap 's=$?; echo "$0: Error on line "$LINENO": $BASH_COMMAND"; exit $s' ERR
 hostname=$(whiptail --inputbox "Enter hostname" 10 50 ${hostname} 3>&1 1>&2 2>&3) || exit 1
 : ${hostname:?"hostname cannot be empty"}
 
-devicelist=$(lsblk -dplnx size -o name,size | grep -Ev "boot|rpmb|loop" | tac)
-device=$(whiptail --menu "Select installation disk" 10 50 0 ${devicelist} 3>&1 1>&2 2>&3) || exit 1
+blockdevicelist=$(lsblk -dplnx size -o name,size | grep -Ev "boot|rpmb|loop" | tac)
+blockdevices=()
+for dev in $(lsblk -dplnx size -o name,size | grep -Ev "boot|rpmb|loop" | tac); do
+	dev_name=$(echo $dev | awk -e '{print $1}')
+	dev_size=$(echo $dev | awk -e '{print $2}')
+	blockdevices+=("${dev_name}" "    ${dev_size}")
+done
+device=$(whiptail --menu "Select installation disk" 10 50 0 ${blockdevices} 3>&1 1>&2 2>&3) || exit 1
 
-fstype=$(whiptail --menu "Select root file system type" 10 50 0 f2fs SSD ext4 HDD 3>&1 1>&2 2>&3) || exit 1
+fstypes=()
+fstypes+=("f2fs" "    Best for SSDs")
+fstypes+=("ext4" "    Best for HDDs")
+fstype=$(whiptail --menu "Select root file system type" 10 50 0 "${fstypes[@]}" 3>&1 1>&2 2>&3) || exit 1
 : ${fstype:?"fstype cannot be empty"}
 
-wire_net=$(whiptail --inputbox "Enter wired network device" 10 50 ${wire_net} 3>&1 1>&2 2>&3) || exit 1
+netdevices=()
+for dev in $(ip link show | egrep "^[0-9]+:" | cut -d: -f2); do
+	netdevices+=("$dev" "")
+done
+
+wire_net=$(whiptail --menu "Select wired network device" 10 50 0 ${netdevices[@]} 3>&1 1>&2 2>&3) || exit 1
 : ${wire_net:?"Wired network device cannot be empty"}
 
 configure_wifi=0
 if whiptail --yesno "Configure WiFi?" 0 0; then
 	configure_wifi=1
-	wifi_net=$(whiptail --inputbox "Enter wireless network device" 10 50 ${wifi_net} 3>&1 1>&2 2>&3) || exit 1
-	clear
+	wifi_net=$(whiptail --menu "Select wireless network device" 10 50 0 ${netdevices} 3>&1 1>&2 2>&3) || exit 1
 	: ${wifi_net:?"Wireless network device cannot be empty"}
 
 	wifi_ssid=$(whiptail --inputbox "Enter WiFi ssid" 10 50 ${wifi_ssid} 3>&1 1>&2 2>&3) || exit 1
-	clear
 	: ${wifi_ssid:?"WiFi ssid cannot be empty"}
 
 	wifi_password=$(whiptail --passwordbox "Enter WiFi password" 10 50 ${wifi_password} 3>&1 1>&2 2>&3) || exit 1
-	clear
 	: ${wifi_password:?"WiFi password cannot be empty"}
 fi
 
@@ -181,7 +192,7 @@ title   Arch Linux
 linux   /vmlinuz-linux
 initrd  /intel-ucode.img
 initrd  /initramfs-linux.img
-options root=${PART_ROOT} rw
+options root=${part_root} rw
 EOF
 
 # start after power loss
