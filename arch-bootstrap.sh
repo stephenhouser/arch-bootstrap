@@ -94,14 +94,14 @@ if [ -z ${rootpass+x} ]; then
 fi
 
 if [ -z ${user+x} ]; then
-	user=$(whiptail --inputbox "Enter admin username" 10 50 ${user} 3>&1 1>&2 2>&3) || exit 1
+	user=$(whiptail --inputbox "Enter primary user username" 10 50 3>&1 1>&2 2>&3) || exit 1
 	: ${user:?"user cannot be empty"}
 fi
 
 if [ -z ${password+x} ]; then
-	password=$(whiptail --passwordbox "Enter admin password" 10 50 ${password} 3>&1 1>&2 2>&3) || exit 1
+	password=$(whiptail --passwordbox "Enter primary user password" 10 50 3>&1 1>&2 2>&3) || exit 1
 	: ${password:?"password cannot be empty"}
-	password2=$(whiptail --passwordbox "Enter admin password again" 10 50 ${password} 3>&1 1>&2 2>&3) || exit 1
+	password2=$(whiptail --passwordbox "Enter primay user password again" 10 50 ${primary_password} 3>&1 1>&2 2>&3) || exit 1
 	[[ "$password" == "$password2" ]] || ( echo "Passwords did not match"; exit 1; )
 fi
 
