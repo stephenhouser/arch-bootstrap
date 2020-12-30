@@ -7,7 +7,6 @@ user=mame
 password=mame
 wire_net=enp1s0f0
 
-configure_wifi=
 wifi_net=wlp2s0
 wifi_ssid=wifi
 wifi_pass=password
@@ -32,6 +31,7 @@ fstype=$(whiptail --menu "Select root file system type" 10 50 0 f2fs SSD ext4 HD
 wire_net=$(whiptail --inputbox "Enter wired network device" 10 50 ${wire_net} 3>&1 1>&2 2>&3) || exit 1
 : ${wire_net:?"Wired network device cannot be empty"}
 
+configure_wifi=0
 if whiptail --yesno "Configure WiFi?" 0 0; then
 	configure_wifi=1
 	wifi_net=$(whiptail --inputbox "Enter wireless network device" 10 50 ${wifi_net} 3>&1 1>&2 2>&3) || exit 1
@@ -140,7 +140,7 @@ DHCP=yes
 EOF
 
 if ${configure_wifi}; then
-cat >> /mnt/etc/systemd/network/20-${wifi_net}.network << EOF
+	cat >> /mnt/etc/systemd/network/20-${wifi_net}.network << EOF
 [Match]
 ${wifi_net}
 
@@ -151,8 +151,8 @@ DHCP=yes
 RouteMetric=20
 EOF
 
-# wifi working
-cat >> /mnt/etc/wpa_supplicant/wpa_supplicant.conf << EOF
+	# wifi working
+	cat >> /mnt/etc/wpa_supplicant/wpa_supplicant.conf << EOF
 ctrl_interface=/run/wpa_supplicant
 update_config=1
 
@@ -161,8 +161,9 @@ network={
 	password="${wifi_password}"
 }
 EOF
-arch-chroot /mnt ln -s /usr/share/dhcpcd/hooks/10-wpa_supplicant /usr/lib/dhcpcd/dhcpcd-hooks/
-arch-chroot /mnt systemctl enable wpa_supplicant.service
+
+	arch-chroot /mnt ln -s /usr/share/dhcpcd/hooks/10-wpa_supplicant /usr/lib/dhcpcd/dhcpcd-hooks/
+	arch-chroot /mnt systemctl enable wpa_supplicant.service
 fi
 
 arch-chroot /mnt systemctl enable systemd-networkd.service
