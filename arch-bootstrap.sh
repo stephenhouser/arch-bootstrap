@@ -16,23 +16,23 @@ wifi_pass=password
 # This script can be run by executing the following:
 #   curl -sL https://git.io/JLHOp | bash
 
-#set -uo pipefail
-#trap 's=$?; echo "$0: Error on line "$LINENO": $BASH_COMMAND"; exit $s' ERR
+set -uo pipefail
+trap 's=$?; echo "$0: Error on line "$LINENO": $BASH_COMMAND"; exit $s' ERR
 
 ### Get infomation from user ###
-hostname=$(whiptail --inputbox "Enter hostname" 0 0 ${hostname} 2>&1) || exit 1
+hostname=$(whiptail --inputbox "Enter hostname" 0 0 ${hostname} 3>&1 1>&2 2>&3) || exit 1
 clear
 : ${hostname:?"hostname cannot be empty"}
 
 devicelist=$(lsblk -dplnx size -o name,size | grep -Ev "boot|rpmb|loop" | tac)
-device=$(whiptail --menu "Select installation disk" 0 0 0 ${devicelist} 2>&1) || exit 1
+device=$(whiptail --menu "Select installation disk" 0 0 0 ${devicelist} 3>&1 1>&2 2>&3) || exit 1
 clear
 
-fstype=$(whiptail --menu "Select root file system type" 0 0 0 f2fs "- For SSDs" ext4 "- For HDDs" 2>&1) || exit 1
+fstype=$(whiptail --menu "Select root file system type" 0 0 0 f2fs "- For SSDs" ext4 "- For HDDs" 3>&1 1>&2 2>&3) || exit 1
 clear
 : ${fstype:?"fstype cannot be empty"}
 
-wire_net=$(whiptail --inputbox "Enter wired network device" 0 0 ${wire_net} 2>&1) || exit 1
+wire_net=$(whiptail --inputbox "Enter wired network device" 0 0 ${wire_net} 3>&1 1>&2 2>&3) || exit 1
 clear
 : ${wire_net:?"Wired network device cannot be empty"}
 
@@ -40,27 +40,27 @@ whiptail --yesno "Configure WiFi?" 0 0
 configure_wifi=$?
 clear
 if ${configure_wifi}; then
-	wifi_net=$(whiptail --inputbox "Enter wireless network device" 0 0 ${wifi_net} 2>&1) || exit 1
+	wifi_net=$(whiptail --inputbox "Enter wireless network device" 0 0 ${wifi_net} 3>&1 1>&2 2>&3) || exit 1
 	clear
 	: ${wifi_net:?"Wireless network device cannot be empty"}
 
-	wifi_ssid=$(whiptail --inputbox "Enter WiFi ssid" 0 0 ${wifi_ssid} 2>&1) || exit 1
+	wifi_ssid=$(whiptail --inputbox "Enter WiFi ssid" 0 0 ${wifi_ssid} 3>&1 1>&2 2>&3) || exit 1
 	clear
 	: ${wifi_ssid:?"WiFi ssid cannot be empty"}
 
-	wifi_password=$(whiptail --passwordbox "Enter WiFi password" 0 0 ${wifi_password} 2>&1) || exit 1
+	wifi_password=$(whiptail --passwordbox "Enter WiFi password" 0 0 ${wifi_password} 3>&1 1>&2 2>&3) || exit 1
 	clear
 	: ${wifi_password:?"WiFi password cannot be empty"}
 fi
 
-user=$(whiptail --inputbox "Enter admin username" 0 0 ${user} 2>&1) || exit 1
+user=$(whiptail --inputbox "Enter admin username" 0 0 ${user} 3>&1 1>&2 2>&3) || exit 1
 clear
 : ${user:?"user cannot be empty"}
 
-password=$(whiptail --passwordbox "Enter admin password" 0 0 ${password} 2>&1) || exit 1
+password=$(whiptail --passwordbox "Enter admin password" 0 0 ${password} 3>&1 1>&2 2>&3) || exit 1
 clear
 : ${password:?"password cannot be empty"}
-password2=$(whiptail --stdout --passwordbox "Enter admin password again" 0 0 ${password} 2>&1) || exit 1
+password2=$(whiptail --stdout --passwordbox "Enter admin password again" 0 0 ${password} 3>&1 1>&2 2>&3) || exit 1
 clear
 [[ "$password" == "$password2" ]] || ( echo "Passwords did not match"; exit 1; )
 
