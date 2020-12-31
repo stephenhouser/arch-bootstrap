@@ -7,23 +7,111 @@
 # Based heavily on https://disconnected.systems/blog/archlinux-installer/#the-complete-installer-script
 
 # DEFAULT VALUES HERE -- IF SET YOU WILL NOT GET PROPMTED
-hostname=mini-mame
+# These are all the possible settings...
+#-- hostname=arch-test
+#-- disk=/dev/sda
+#-- part_root=/dev/sda3
+#-- part_swap=/dev/sda2
+#-- fstype=f2fs
+#-- wire_net=enp1s0f0
+#-- wire_net=enp0s3
+#-- configure_wifi=false
+#-- wifi_net=wlp2s0
+#-- wifi_ssid=wifi
+#-- wifi_pass=password
+#-- wifi_psk="psk"
+#-- system_packages <-- include a space after each item!
+#-- rootpass=super
+#-- user=arch
+#-- password=password
+
+# VirtualBox with UEFI, SSD, wired-only, wipe and use entire drive
+# hostname=arch-test
+# disk=/dev/sda
+# fstype=f2fs
+# wire_net=enp0s3
+# configure_wifi=false
+# rootpass=super
+# user=arch
+# password=password
+
+# VirtualBox with BOIS, HDD, use esisting /dev/sda2(swap) and /def/sda3(root)
+hostname=arch-test
 disk=/dev/sda
-part_root=/dev/sda3
 part_swap=/dev/sda2
-#fstype=f2fs
+part_root=/dev/sda3
+fstype=ext4
+wire_net=enp0s3
+configure_wifi=true
+wifi_net=enp0s8
+wifi_ssid="wifi"
+wifi_psk="wpa-pre-shared-key"
+rootpass=super
+user=arch
+password=password
 
-#wire_net=enp1s0f0
+# MacMini, UEFI, SSD, wired and wireless, wipe and use entire drive
+# hostname=mini-mame
+# disk=/dev/sda
+# fstype=f2fs
+# wire_net=enp1s0f0
+# configure_wifi=true
+# wifi_net=wlp2s0
+# wifi_ssid="houser"
+# wifi_psk="wpa-pre-shared-key"
+#	# broadcom-wl-dkms 	-- Mac mini wireless driver
+# system_packages="broadcom-wl-dkms "
+# rootpass=super
+# user=mame
+# password=mame
 
-#configure_wifi=0
-#wifi_net=wlp2s0
-#wifi_ssid=wifi
-#wifi_pass=password
-#wifi_psk="psk"
+# KidsMAME-1, BIOS, HDD, wired and wireless, use existing partitions
+# hostname=kids-mame-1
+# disk=/dev/sda
+# part_swap=/dev/sda2
+# part_root=/dev/sda3
+# fstype=ext4
+# wire_net=enp02s5
+# configure_wifi=true
+# wifi_net=wlan0
+# wifi_ssid="houser"
+# wifi_psk="wpa-pre-shared-key"
+# rootpass=super
+# user=mame
+# password=mame
 
-#rootpass=none
-#user=mame
-#password=mame
+# Base Packages to install
+# linux linux-firmware 	-- the kernel
+# linux-headers 		-- allows building and dynamic build kernel modules
+# intel-ucide 			-- indel microcode updates
+# base base-devel 		-- base GNU/Linux and development tools
+# dhcpcd				-- DHCP Client
+# e2fsprogs				-- ext based file systems
+# exfatprogs			-- MS-DOS FAT based file systems
+# dosfstools			-- MS-DOS FAT based file systems
+# f2fs-tools			-- F2FS Flash-based file systems
+# ntfs-3g				-- NTFS-based file systems
+# openssh				-- SSH client and server
+# man-db man-pages		-- The manual
+# pkgfile 				-- allows finding which package provides a program
+# zsh grml-zsh-confit	-- zsh and pre-configured zsh scripts
+# sudo					-- sudo command 
+# vim					-- the editor
+# screen				-- terminal multiplexer
+# git					-- source code control
+# libnewt 				-- whiptail for text-mode prompts
+
+# jack					-- sound routing
+base_packages="
+	linux linux-firmware linux-headers intel-ucode
+	base base-devel
+	dhcpcd openssh
+	e2fsprogs exfatprogs f2fs-tools dosfstools ntfs-3g
+	pkgfile libnewt
+	man-db man-pages
+	zsh grml-zsh-config
+	sudo vim git screen
+"
 
 set -uo pipefail
 trap 's=$?; echo "$0: Error on line "$LINENO": $BASH_COMMAND"; exit $s' ERR
@@ -107,6 +195,23 @@ fi
 
 [ -d /sys/firmware/efi ] && firmware=UEFI || firmware=BIOS
 
+# Compile extra packages needed based on system
+: ${system_packages:=""}
+# Firmware packages
+if [ "${firmware}" == "UEFI" ]; then
+	# efibootmgr		-- for manipulating UEFI boot order systemd-boot
+	system_packages+="efibootmgr "
+else
+	# grub				-- The GRUB bootloader
+	system_packages+="grub "
+fi
+
+# WiFi Packages (if enabled)
+if [ "${configure_wifi}" = true ]; then
+	# wpa_supplicant	-- WPA WiFi authentication
+	system_packages+="wpa_supplicant "
+fi
+
 # Review
 cat >> /tmp/settings.$$ << EOF
 Build system with the following settings...
@@ -116,10 +221,11 @@ rootpass=${rootpass}
 user=${user}
 password=${password}
 disk=${disk}
-part_root=${part_root:-"--unset--"}
-part_swap=${part_swap:-"--unset--"}
+part_root=${part_root:-"auto"}
+part_swap=${part_swap:-"auto"}
 fstype=${fstype}
 firmware=${firmware}
+system_packages=${system_packages}
 wire_net=${wire_net}
 configure_wifi=${configure_wifi}
 wifi_net=${wifi_net:-"--unset--"}
@@ -148,8 +254,9 @@ if [ -z ${part_root+x} ]; then
 	swap_end=$(( $swap_size + 129 + 1 ))MiB
 
 	[ "${firmware}" == "UEFI" ] && boot_fstype=ESP || boot_fstype=primary
+	[ "${firmware}" == "UEFI" ] && label_type=gpt || label_type=msdos
 
-	parted --script "${disk}" -- mklabel gpt \
+	parted --script "${disk}" -- mklabel ${label_type} \
 		mkpart ${boot_fstype} fat32 1Mib 129MiB \
 		set 1 boot on \
 		mkpart primary linux-swap 129MiB ${swap_end} \
@@ -171,7 +278,7 @@ if [ ! -z ${part_swap+x} ]; then
 fi
 
 wipefs "${part_root}"
-mkfs.${fstype} -f "${part_root}"
+mkfs -t ${fstype} "${part_root}"
 mount "${part_root}" /mnt
 
 if [ ! -z ${part_boot+x} ]; then
@@ -184,55 +291,7 @@ fi
 echo ""
 echo "Botstrapping the root volume..."
 
-# Firmware packages
-if [ "${firmware}" == "UEFI" ]; then
-	# efibootmgr		-- for manipulating UEFI boot order systemd-boot
-	bootloader_packages="efibootmgr"
-else
-	# grub				-- The GRUB bootloader
-	bootloader_packages="grub"
-fi
-
-# WiFi Packages (if enabled)
-if [ "${configure_wifi}" = true ]; then
-	# wpa_supplicant	-- WPA WiFi authentication
-	# broadcom-wl-dkms 	-- Mac mini wireless driver
-	wifi_packages="wpa_supplicant broadcom-wl-dkms"
-else
-	wifi_packages=""
-fi
-
-# linux linux-firmware 	-- the kernel
-# linux-headers 		-- allows building and dynamic build kernel modules
-# intel-ucide 			-- indel microcode updates
-# base base-devel 		-- base GNU/Linux and development tools
-# dhcpcd				-- DHCP Client
-# e2fsprogs				-- ext based file systems
-# exfatprogs			-- MS-DOS FAT based file systems
-# dosfstools			-- MS-DOS FAT based file systems
-# f2fs-tools			-- F2FS Flash-based file systems
-# ntfs-3g				-- NTFS-based file systems
-# openssh				-- SSH client and server
-# man-db man-pages		-- The manual
-# pkgfile 				-- allows finding which package provides a program
-# zsh grml-zsh-confit	-- zsh and pre-configured zsh scripts
-# sudo					-- sudo command 
-# vim					-- the editor
-# screen				-- terminal multiplexer
-# git					-- source code control
-# libnewt 				-- whiptail for text-mode prompts
-
-pacstrap /mnt \
-	linux linux-firmware linux-headers intel-ucode \
-	${bootloader_packages} \
-	base base-devel \
-	${wifi_packages} \
-	dhcpcd openssh \
-	e2fsprogs exfatprogs f2fs-tools dosfstools ntfs-3g \
-	pkgfile libnewt \
-	man-db man-pages \
-	zsh grml-zsh-config \
-	sudo vim git screen 
+pacstrap /mnt ${base_packages} ${system_packages}
 
 genfstab -t PARTUUID /mnt >> /mnt/etc/fstab
 
@@ -341,6 +400,7 @@ EOF
 	setpci -s 0:1f.0 0xa4.b=0
 else
 	arch-chroot /mnt grub-install ${disk}
+	arch-chroot /mnt grub-mkconfig -o /boot/grub/grub.cfg
 fi
 
 #echo ""

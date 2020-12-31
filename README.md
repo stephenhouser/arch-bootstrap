@@ -6,7 +6,7 @@ Primarily focused on the MacMini that I have laying about and getting it set up 
 
 
 curl -i https://git.io \
-    -F "url=https://gist.githubusercontent.com/stephenhouser/a9fd72b1c978ee8e6adbbceb1e6baea5/raw/fa301d6d3ff5f886f9cdca47f2da4f111b3f3f0a/arch-bootstrap.sh" \
-    -F "code=arch-bootstrap-v4"
+    -F "url=https://gist.githubusercontent.com/stephenhouser/a9fd72b1c978ee8e6adbbceb1e6baea5/raw/7a43d77d251d442c12cf618aab39871c1c171d91/arch-bootstrap.sh" \
+    -F "code=arch-bootstrap-v5"
 
-curl -sL https://git.io/arch-bootstrap-v4
+curl -sL https://git.io/arch-bootstrap-v5
