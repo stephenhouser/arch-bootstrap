@@ -36,33 +36,33 @@
 # password=password
 
 # VirtualBox with BOIS, HDD, use esisting /dev/sda2(swap) and /def/sda3(root)
-hostname=arch-test
-disk=/dev/sda
-part_swap=/dev/sda2
-part_root=/dev/sda3
-fstype=ext4
-wire_net=enp0s3
-configure_wifi=true
-wifi_net=enp0s8
-wifi_ssid="wifi"
-wifi_psk="wpa-pre-shared-key"
-rootpass=super
-user=arch
-password=password
+# hostname=arch-test
+# disk=/dev/sda
+# part_swap=/dev/sda2
+# part_root=/dev/sda3
+# fstype=ext4
+# wire_net=enp0s3
+# configure_wifi=true
+# wifi_net=enp0s8
+# wifi_ssid="wifi"
+# wifi_psk="wpa-pre-shared-key"
+# rootpass=super
+# user=arch
+# password=password
 
 # MacMini, UEFI, SSD, wired and wireless, wipe and use entire drive
-# hostname=mini-mame
-# disk=/dev/sda
-# fstype=f2fs
-# wire_net=enp1s0f0
-# configure_wifi=true
-# wifi_net=wlp2s0
-# wifi_ssid="houser"
-# wifi_psk="wpa-pre-shared-key"
-#	# broadcom-wl-dkms 	-- Mac mini wireless driver
-# system_packages="broadcom-wl-dkms "
+# broadcom-wl-dkms 	-- Mac mini wireless driver
+hostname=mini-mame
+disk=/dev/sda
+fstype=f2fs
+wire_net=enp1s0f0
+configure_wifi=true
+wifi_net=wlp2s0
+wifi_ssid="houser"
+wifi_psk="wpa-pre-shared-key"
+system_packages="broadcom-wl-dkms "
 # rootpass=super
-# user=mame
+user=houser
 # password=mame
 
 # KidsMAME-1, BIOS, HDD, wired and wireless, use existing partitions
@@ -187,9 +187,9 @@ if [ -z ${user+x} ]; then
 fi
 
 if [ -z ${password+x} ]; then
-	password=$(whiptail --passwordbox "Enter primary user password" 10 50 3>&1 1>&2 2>&3) || exit 1
+	password=$(whiptail --passwordbox "Enter ${user}'s password" 10 50 3>&1 1>&2 2>&3) || exit 1
 	: ${password:?"password cannot be empty"}
-	password2=$(whiptail --passwordbox "Enter primay user password again" 10 50 3>&1 1>&2 2>&3) || exit 1
+	password2=$(whiptail --passwordbox "Enter ${user}'s password again" 10 50 3>&1 1>&2 2>&3) || exit 1
 	[[ "$password" == "$password2" ]] || ( echo "Passwords did not match"; exit 1; )
 fi
 
@@ -272,17 +272,17 @@ fi
 echo ""
 echo "Creating and activating file systems..."
 if [ ! -z ${part_swap+x} ]; then
-	wipefs "${part_swap}"
+	wipefs -a "${part_swap}"
 	mkswap "${part_swap}"
 	swapon "${part_swap}"
 fi
 
-wipefs "${part_root}"
+wipefs -a "${part_root}"
 mkfs -t ${fstype} "${part_root}"
 mount "${part_root}" /mnt
 
 if [ ! -z ${part_boot+x} ]; then
-	wipefs "${part_boot}"
+	wipefs -a "${part_boot}"
 	mkfs.vfat -F32 "${part_boot}"
 	mkdir /mnt/boot
 	mount "${part_boot}" /mnt/boot
